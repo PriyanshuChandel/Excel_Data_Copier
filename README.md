@@ -12,7 +12,7 @@ This is a Python GUI program which allows you to copy data from one Excel sheet 
   - `warnings` library to ignore the warnings.
 
 ### Installation
-1. Make sure you have Python 3.x installed. If you don't have it installed, you can download it from the official website [here]('https://www.python.org/downloads/').
+1. Make sure you have Python 3.x installed. If you don't have it installed, you can download it from the official website [here](https://www.python.org/downloads/).
 2. Clone this GitHub repository to your local machine or download the ZIP file and extract it to your desired location.
 3. Open a terminal or command prompt and navigate to the directory where you cloned or extracted the repository.
 4. Once the dependencies are installed, you can run the program by executing the following command:
