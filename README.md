@@ -37,3 +37,9 @@ This will launch the GUI for the program.
 - The source and target reference columns must contain the same type of data (e.g. both columns must contain numbers or text) in order for the copy operation to work correctly.
 - The program assumes that the Excel files have the .xlsx extension. It may not work correctly with excel extensions .xlsm, .xlsb, .xltx, .xltm and .xlt
 - Let the program finish completely and do not close it while it is on progress, otherwise TARGET EXCEL FILE WILL CORRUPT.
+
+### Contributions
+Contributions to this repo are welcome. If you find a bug or have a suggestion for improvement, please open an issue on the repository. If you would like to make changes to the code, feel free to submit a pull request.
+
+### Acknowledgments
+This program was created as a part of a programming challenge. Special thanks to the challenge organizers for the inspiration.
