@@ -2,162 +2,733 @@ from openpyxl import load_workbook  # To manage the excel processing
 from warnings import filterwarnings  # To ignore the warnings
 from threading import Thread  # To use multiple process threads
 from time import time  # To calculate the elapsed time by program
-from os.path import join, dirname  # To manage the files directory
-from tkinter import Tk, filedialog, Label, Button, Entry  # To create GUI
+from os.path import join, dirname, splitext, basename, exists  # To manage the files directory
+from tkinter import Tk, filedialog, Label, Button, Entry, Toplevel, Canvas, Checkbutton, IntVar  # To create GUI
 from datetime import datetime  # Used in logging system
+from tkinter.ttk import Progressbar, Style, Combobox  # Used to show progress
+from tkinter.scrolledtext import ScrolledText  # To create dynamic checkboxes
+from random import randint  # To create random color
+from xlwings import Book, App  # To apply filter
 
-icon_file = join(dirname(__file__), 'Excel.ico')
-window = Tk()
-window.config(bg='grey')
-window.title('Copier - Developed by Priyanshu')
-window.minsize(width=800, height=385)
-window.maxsize(width=800, height=385)
-window.iconbitmap(icon_file)
+fileHandler = open(f"logs_{datetime.now().strftime('%Y%m%d%H%M%S')}.txt", 'a')
 
-def threading_btn2():
-    thread_btn2 = Thread(target=btn2_func)
-    thread_btn2.start()
+iconFile = join(dirname(__file__), 'Excel_Mac_23559.ico')
+aboutIcon = join(dirname(__file__), 'info.ico')
 
-def btn2_func():
-    global excel_file_path_src
-    excel_file_path_src = filedialog.askopenfilename(
-        filetypes=(("excel files", "*.xlsx"), ("all files", "*.*")))
-    ent2.insert(0, excel_file_path_src)
+sourceExcelFile = ''
 
-def threading_btn3():
-    thread_btn3 = Thread(target=btn3_func)
-    thread_btn3.start()
+targetExcelFile = ''
 
-def btn3_func():
-    global excel_file_path_dest
-    excel_file_path_dest = filedialog.askopenfilename(
-        filetypes=(("excel files", "*.xlsx"), ("all files", "*.*")))
-    ent3.insert(0, excel_file_path_dest)
+def threadingSourceExcelFileDialogFunc(progressBar, progressStyle, sourceExcelEntry, sourceExcelFileDialogBtn,
+                                       sourceExcelSheetCombo, resetBtn, messageText, sourceExcelSheetComboValues):
+    threadSourceExcelFileDialog = Thread(target=sourceExcelFileDialogFunc, args=(progressBar, progressStyle,
+                                                                                 sourceExcelEntry,
+                                                                                 sourceExcelFileDialogBtn,
+                                                                                 sourceExcelSheetCombo,
+                                                                                 resetBtn, messageText,
+                                                                                 sourceExcelSheetComboValues))
+    threadSourceExcelFileDialog.start()
 
-def threading_btn4():
-    thread_btn4 = Thread(target=search_copy_func)
-    thread_btn4.start()
 
-def search_copy_func():
-    labl12.config(text="I know you are lazy to do this boring copy-paste job. NVM take rest while I complete this task."
-                       "\nProcessing...")
-    start = time()
-    filterwarnings("ignore", category=DeprecationWarning)
-    workbook_object_src = load_workbook(excel_file_path_src)
-    workbook_object_dest = load_workbook(excel_file_path_dest)
-    src_excel_sheet_name = ent4.get()
-    dest_excel_sheet_name = ent5.get()
-    sheet_obj_src = workbook_object_src.get_sheet_by_name(f'{src_excel_sheet_name}')
-    sheet_obj_dest = workbook_object_dest.get_sheet_by_name(f'{dest_excel_sheet_name}')
-    search_column_src = int(ent6.get())
-    search_column_dest = int(ent7.get())
-    src_column_list = list()
-    dest_column_list = list()
-    [src_column_list.append(int(item)) for item in ent9.get().split(',')]
-    [dest_column_list.append(int(item)) for item in ent10.get().split(',')]
-    no_of_max_rows_src = sheet_obj_src.max_row
-    no_of_max_rows_dest = sheet_obj_dest.max_row
-    file_handler = open(f"logs_{datetime.now().strftime('%Y%m%d%H%M%S')}.txt", 'a')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} {excel_file_path_src} selected as source file \n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} {excel_file_path_dest} selected as destination file \n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} {sheet_obj_src} selected as source sheet \n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} {sheet_obj_dest} selected as destination sheet \n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} column {search_column_src} is source reference\n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} column {search_column_dest} is destination reference \n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} {src_column_list} are the source columns\n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} {dest_column_list} are the destination columns\n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} {no_of_max_rows_src} are the total source rows\n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} {no_of_max_rows_dest} are the total destination rows\n')
-    reference_cell_value_for_which_data_copied = list()
-    for row_index_src in range(2, no_of_max_rows_src + 1):
+def sourceExcelFileDialogFunc(progressBar, progressStyle, sourceExcelEntry, sourceExcelFileDialogBtn,
+                              sourceExcelSheetCombo, resetBtn, messageText, sourceExcelSheetComboValues):
+    global sourceExcelFile
+    messageText.config(text='')
+    progressBar.config(value=0)
+    progressStyle.configure("Custom.Horizontal.TProgressbar", text='0 %')
+    sourceExcelSheetComboValues.clear()
+    sourceExcelSheetComboValues.append('Select WorkSheet')
+    sourceExcelFile = filedialog.askopenfilename(filetypes=(("Excel files", "*.xlsx"),))
+    sourceExcelEntry.config(state='normal')
+    sourceExcelEntry.delete(0, 'end')
+    sourceExcelEntry.insert(0, sourceExcelFile)
+    sourceExcelEntry.config(state='readonly')
+    filterwarnings("ignore", category=UserWarning)
+    if len(sourceExcelEntry.get()) > 0:
+        fileHandler.write(
+            f'{datetime.now().replace(microsecond=0)} [{sourceExcelFile}] is selected as source excel file\n')
+        sourceExcelFileDialogBtn.config(state='disabled', bg='light grey')
         try:
-            if not sheet_obj_src.row_dimensions[row_index_src].hidden:
-                cell_src_value = sheet_obj_src.cell(row=row_index_src, column=search_column_src).value
-                file_handler.write(f'{datetime.now().replace(microsecond=0)} {cell_src_value} is source cell value\n')
-                for row_index_dest in range(2, no_of_max_rows_dest + 1):
-                    try:
-                        if not sheet_obj_dest.row_dimensions[row_index_dest].hidden:
-                            cell_dest_value = sheet_obj_dest.cell(row=row_index_dest, column=search_column_dest).value
-                            file_handler.write(f'{datetime.now().replace(microsecond=0)} {cell_dest_value} is '
-                                               f'destination cell value\n')
-                            file_handler.write(f'{datetime.now().replace(microsecond=0)} comparing source cell value '
-                                               f'[{cell_src_value}] with destination cell value [{cell_dest_value}]\n')
-                            if str(cell_src_value) in str(cell_dest_value):
-                                reference_cell_value_for_which_data_copied.append(cell_dest_value)
-                                for column_src, column_dest in zip(src_column_list, dest_column_list):
-                                    temp = sheet_obj_dest.cell(row=row_index_dest, column=int(column_dest)).value = \
-                                        sheet_obj_src.cell(row=row_index_src, column=int(column_src)).value
-                                    workbook_object_dest.save(str(excel_file_path_dest))
-                                    file_handler.write(f'{datetime.now().replace(microsecond=0)} match found, [{temp}] '
-                                                       f'from source cell [column_row] [{column_src}_{row_index_src}] '
-                                                       f'copied in destination cell [column_row] '
-                                                       f'[{column_dest}_{row_index_dest}]\n')
-                                    temp = ''
-                                break
-                    except Exception as e:
-                        file_handler.write(f'{datetime.now().replace(microsecond=0)} [ERROR1] [{e}]\n')
-            continue
-        except Exception as e:
-            file_handler.write(f'{datetime.now().replace(microsecond=0)} [ERROR2] [{e}]\n')
-    end = time()
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} Data for {len(reference_cell_value_for_which_data_copied)} '
-                       f'cells whose values are [{reference_cell_value_for_which_data_copied}] respectively copied\n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} TASK COMPLETED]\n')
-    file_handler.write(f'{datetime.now().replace(microsecond=0)} ELAPSED TIME TO COMPLETE THIS TASK IS '
-                       f'{((end - start) / 60)} Minutes\n')
-    file_handler.close()
-    labl12.config(text='Task completed, check logs file for the status')
+            for sourceExcelSheet in load_workbook(sourceExcelEntry.get()).sheetnames:
+                sourceExcelSheetComboValues.append(sourceExcelSheet)
+            sourceExcelSheetCombo.config(state='normal')
+            sourceExcelSheetCombo.config(values=sourceExcelSheetComboValues)
+            resetBtn.config(state='normal', bg='red')
+            load_workbook(sourceExcelEntry.get()).close()
+        except PermissionError as permError:
+            fileHandler.write(
+                f'{datetime.now().replace(microsecond=0)} [Permission Error] [Permission Denied] [{sourceExcelFile}] '
+                f'is opened by another application, close it first\n')
+            fileHandler.write(f'{datetime.now().replace(microsecond=0)} [ERROR][{permError}]\n')
+            messageText.config(text='Close excel file, in use by another app')
+            sourceExcelFileDialogBtn.config(state='normal', bg='green')
+        except IndexError as indError:
+            fileHandler.write(
+                f'{datetime.now().replace(microsecond=0)} [Index Error] Unable to access the sheets of excel file '
+                f'[{sourceExcelFile}]. Possibly because excel file is not correctly saved before\n')
+            fileHandler.write(f'{datetime.now().replace(microsecond=0)} [ERROR][{indError}]\n')
+            messageText.config(text='Error, Try again with different excel file')
+            sourceExcelFileDialogBtn.config(state='normal', bg='green')
 
-labl1 = Label(window, text='Excel Data Copier', font=(None, 17, 'bold'), bg='grey').place(x=285, y=1)
-labl2 = Label(window, text='Select the source excel file', font=(None, 9, 'bold'), bg='grey')
-labl2.place(x=0, y=40)
-ent2 = Entry(window, bd=4, width=47, bg='lavender')
-ent2.place(x=180, y=40)
-btn2 = Button(window, text='...', command=threading_btn2, bg='green')
-btn2.place(x=480, y=38)
-labl3 = Label(window, text='Select the target excel file', font=(None, 9, 'bold'), bg='grey')
-labl3.place(x=0, y=70)
-ent3 = Entry(window, bd=4, width=47, bg='lavender')
-ent3.place(x=180, y=70)
-btn3 = Button(window, text='...', command=threading_btn3, bg='green')
-btn3.place(x=480, y=68)
-labl4 = Label(window, text='Enter the name of sheet from source excel file', font=(None, 9, 'bold'), bg='grey')
-labl4.place(x=0, y=100)
-ent4 = Entry(window, bd=4, width=47, bg='lavender')
-ent4.place(x=270, y=100)
-labl5 = Label(window, text='Enter the name of sheet from target excel file', font=(None, 9, 'bold'), bg='grey')
-labl5.place(x=0, y=130)
-ent5 = Entry(window, bd=4, width=47, bg='lavender')
-ent5.place(x=270, y=130)
-labl6 = Label(window, text='Enter the source reference column index(1 for A, 2 for B ...n for N)'
-              , font=(None, 9, 'bold'), bg='grey')
-labl6.place(x=0, y=160)
-ent6 = Entry(window, bd=4, width=47, bg='lavender')
-ent6.place(x=370, y=160)
-labl7 = Label(window, text='Enter the target reference column index(1 for A, 2 for B ...n for N)',
-              font=(None, 9, 'bold'), bg='grey')
-labl7.place(x=0, y=190)
-ent7 = Entry(window, bd=4, width=47, bg='lavender')
-ent7.place(x=370, y=190)
-labl9 = Label(window,
-              text='Enter the index of source columns from which data to be copied. Enter like 1,2...n for A,'
-                   'B..N', font=(None, 9, 'bold'), bg='grey')
-labl9.place(x=0, y=220)
-ent9 = Entry(window, bd=4, width=45, bg='lavender')
-ent9.place(x=514, y=220)
-labl10 = Label(window,
-               text='Enter the index of target columns into which data to be copied. Enter like 1,2...n for '
-                    'A,B..N', font=(None, 9, 'bold'), bg='grey')
-labl10.place(x=0, y=250)
-ent10 = Entry(window, bd=4, width=47, bg='lavender')
-ent10.place(x=502, y=250)
-btn4 = Button(window, text='Submit', font=(None, 9, 'bold'), command=threading_btn4, bg='green')
-btn4.place(x=350, y=280)
-labl11 = Label(window, font=(None, 9, 'bold'), text="Note: Program may not work well will excel extensions .xlsm, "
-                                                    ".xlsb, .xltx, .xltm and .xlt. Let the program finish completely "
-                                                    "and do not close it \nwhile it is on progress, otherwise TARGET "
-                                                    "EXCEL FILE WILL CORRUPT.",bg='grey', fg = 'orange',
-               justify='left').place(x=3,y=310)
-labl12 = Label(window, bg='grey',font=(None, 9, 'bold'),justify='left')
-labl12.place(x=0, y=345)
-window.mainloop()
+    else:
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} No source excel file selected\n')
+        messageText.config(text='Select source Excel')
+    fileHandler.flush()
+
+def threadingTargetExcelFileDialogFunc(progressBar, progressStyle, targetExcelSheetComboValues, targetExcelEntry,
+                                       targetExcelFileDialogBtn, targetExcelSheetCombo, messageText, resetBtn):
+    threadTargetExcelFileDialog = Thread(target=TargetExcelFileDialogFunc, args=(progressBar, progressStyle,
+                                                                                 targetExcelSheetComboValues,
+                                                                                 targetExcelEntry,
+                                                                                 targetExcelFileDialogBtn,
+                                                                                 targetExcelSheetCombo,
+                                                                                 messageText, resetBtn))
+    threadTargetExcelFileDialog.start()
+
+
+def TargetExcelFileDialogFunc(progressBar, progressStyle, targetExcelSheetComboValues, targetExcelEntry,
+                              targetExcelFileDialogBtn, targetExcelSheetCombo, messageText, resetBtn):
+    global targetExcelFile
+    messageText.config(text='')
+    progressBar.config(value=0)
+    resetBtn.config(state='disabled', bg='light grey')
+    progressStyle.configure("Custom.Horizontal.TProgressbar", text='0 %')
+    targetExcelSheetComboValues.clear()
+    targetExcelSheetComboValues.append('Select WorkSheet')
+    targetExcelFile = filedialog.askopenfilename(filetypes=(("Excel files", "*.xlsx"),))
+    targetExcelEntry.config(state='normal')
+    targetExcelEntry.delete(0, 'end')
+    targetExcelEntry.insert(0, targetExcelFile)
+    targetExcelEntry.config(state='readonly')
+    if len(targetExcelEntry.get()) > 0:
+        if sourceExcelFile == targetExcelFile:
+            fileHandler.write(
+                f'{datetime.now().replace(microsecond=0)} Same source and target excel file selected. Choose different '
+                f'file\n')
+            messageText.config(text='Choose different Excel file; target and source cannot be same')
+        else:
+            fileHandler.write(
+                f'{datetime.now().replace(microsecond=0)} [{targetExcelFile}] is selected as target excel file\n')
+            targetExcelFileDialogBtn.config(state='disabled', bg='light grey')
+            try:
+                for targetExcelSheet in load_workbook(targetExcelEntry.get()).sheetnames:
+                    targetExcelSheetComboValues.append(targetExcelSheet)
+                load_workbook(targetExcelEntry.get()).close()
+                targetExcelSheetCombo.config(state='normal')
+                targetExcelSheetCombo.config(values=targetExcelSheetComboValues)
+            except PermissionError as permError:
+                fileHandler.write(
+                    f'{datetime.now().replace(microsecond=0)} [Permission Error] [Permission Denied] '
+                    f'[{targetExcelFile}] is opened by another application, close it first\n')
+                fileHandler.write(f'{datetime.now().replace(microsecond=0)} [ERROR][{permError}]\n')
+                messageText.config(text='Close excel file, in use by another app')
+                targetExcelFileDialogBtn.config(state='normal', bg='green')
+            except IndexError as indError:
+                fileHandler.write(
+                    f'{datetime.now().replace(microsecond=0)} [Index Error] Unable to access the sheets of excel file '
+                    f'[{targetExcelFile}]. Possibly because excel file is not correctly saved before\n')
+                fileHandler.write(f'{datetime.now().replace(microsecond=0)} [ERROR][{indError}]\n')
+                messageText.config(text='Error, Try again with different excel file')
+                targetExcelFileDialogBtn.config(state='normal', bg='green')
+    else:
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} No target excel file selected\n')
+        messageText.config(text='Select target Excel')
+    resetBtn.config(state='normal', bg='red')
+    fileHandler.flush()
+
+def threadingMatchCopyPaste(sourceExcelEntry, sourceExcelSheetCombo, sourceReferenceColumnCombo,
+                            sourceExcelFileDialogBtn, sourceCopyColumnsScrolledText, targetExcelEntry,
+                            targetExcelSheetCombo, targetReferenceColumnCombo, targetReferenceColumnComboValues,
+                            targetExcelFileDialogBtn, targetPasteColumnsScrolledText, resetBtn, messageText, window,
+                            progressBar, progressStyle):
+    threadMatchCopyPaste = Thread(target=matchCopyPaste, args=(sourceExcelEntry, sourceExcelSheetCombo,
+                                                               sourceReferenceColumnCombo, sourceExcelFileDialogBtn,
+                                                               sourceCopyColumnsScrolledText, targetExcelEntry,
+                                                               targetExcelSheetCombo, targetReferenceColumnCombo,
+                                                               targetReferenceColumnComboValues,
+                                                               targetExcelFileDialogBtn, targetPasteColumnsScrolledText,
+                                                               resetBtn, messageText, window, progressBar,
+                                                               progressStyle))
+    threadMatchCopyPaste.start()
+
+
+def matchCopyPaste(sourceExcelEntry, sourceExcelSheetCombo, sourceReferenceColumnCombo, sourceExcelFileDialogBtn,
+                   sourceCopyColumnsScrolledText, targetExcelEntry, targetExcelSheetCombo, targetReferenceColumnCombo,
+                   targetReferenceColumnComboValues, targetExcelFileDialogBtn, targetPasteColumnsScrolledText, resetBtn,
+                   messageText, window, progressBar, progressStyle):
+    messageText.config(text='')
+    for checkbox in copyCheckboxes.keys():
+        checkbox.config(state='disabled')
+    submitBtn.config(state='disabled', bg='light grey')
+    resetBtn.config(state='disabled', bg='light grey')
+    fileHandler.write(f'{datetime.now().replace(microsecond=0)} Column {copySelectedValues} index {copySelectedIndex} '
+                      f'chosen to be copied\n')
+    fileHandler.write(f'{datetime.now().replace(microsecond=0)} Column {pasteSelectedValues} index '
+                      f'{pasteSelectedIndex} chosen to be pasted into\n')
+    fileHandler.write(f'{datetime.now().replace(microsecond=0)} Searching... Copy & Paste\n')
+    messageText.config(text="Processing...")
+    startTime = time()
+    filterwarnings("ignore", category=DeprecationWarning)
+    sourceWorkbook = load_workbook(sourceExcelFile)
+    sourceExcelSheet = sourceExcelSheetCombo.get()
+    sourceWorkSheet = sourceWorkbook[sourceExcelSheet]
+    sourceReferenceColumn = excelColumnIndex(sourceReferenceColumnCombo.get())
+    sourceTotalRows = sourceWorkSheet.max_row
+    fileHandler.write(
+        f'{datetime.now().replace(microsecond=0)} {sourceTotalRows} are the total unfiltered source excel sheet rows\n')
+    targetWorkbook = load_workbook(targetExcelFile)
+    targetExcelSheet = targetExcelSheetCombo.get()
+    targetWorkSheet = targetWorkbook[targetExcelSheet]
+    targetReferenceColumn = excelColumnIndex(targetReferenceColumnCombo.get())
+    targetTotalRows = targetWorkSheet.max_row
+    fileHandler.write(
+        f'{datetime.now().replace(microsecond=0)} {targetTotalRows} are the total unfiltered target excel sheet rows\n')
+    copyPasteDone = set()
+    pasteSuccess = 0
+    sourceVisibleRowCount = len([row for row in range(2, sourceTotalRows + 1) if
+                                 not sourceWorkSheet.row_dimensions[row].hidden])
+    fileHandler.write(
+        f'{datetime.now().replace(microsecond=0)} Total filtered source rows are {sourceVisibleRowCount}\n')
+    source_rows = sourceWorkSheet.iter_rows(min_row=2, max_row=sourceTotalRows, values_only=True)
+    for sourceRowIndex, sourceRow in enumerate(source_rows, start=2):
+        if sourceWorkSheet.row_dimensions[sourceRowIndex].hidden:
+            fileHandler.write(
+                f'{datetime.now().replace(microsecond=0)} Source row [{sourceRowIndex}] is hidden(Filtered)\n')
+            continue
+        sourceCellValue = sourceRow[sourceReferenceColumn - 1]
+        fileHandler.write(
+            f'{datetime.now().replace(microsecond=0)} [{sourceCellValue}] is source cell value from '
+            f'[row_({sourceRowIndex}),column_({sourceReferenceColumn})] \n')
+        target_rows = targetWorkSheet.iter_rows(min_row=2, max_row=targetTotalRows,
+                                                values_only=True)  # Update target rows after modification
+        for targetRowIndex, targetRow in enumerate(target_rows, start=2):
+            if not targetWorkSheet.row_dimensions[targetRowIndex].hidden:
+                targetCellValue = targetRow[targetReferenceColumn - 1]
+                fileHandler.write(
+                    f'{datetime.now().replace(microsecond=0)} {targetCellValue} is target cell value from '
+                    f'[row_({targetRowIndex}),column_({targetReferenceColumn})]\n')
+                fileHandler.write(
+                    f'{datetime.now().replace(microsecond=0)} comparing source cell value [{sourceCellValue}] '
+                    f'with target cell value [{targetCellValue}]\n')
+                if sourceCellValue == targetCellValue:
+                    targetRow = list(targetRow)  # Convert tuple to list
+
+                    for sourceColumn, targetColumn in zip(copySelectedIndex, pasteSelectedIndex):
+                        targetRow[targetColumn - 1] = sourceRow[sourceColumn - 1]
+
+                    # Copy the content of the particular cell
+                    for sourceColumn, targetColumn in zip(copySelectedIndex, pasteSelectedIndex):
+                        targetCell = targetWorkSheet.cell(row=targetRowIndex, column=targetColumn)
+                        sourceCell = sourceWorkSheet.cell(row=sourceRowIndex, column=sourceColumn)
+                        targetCell.value = sourceCell.value
+                    fileHandler.write(
+                        f'{datetime.now().replace(microsecond=0)} Matched, cell Value Copied Successfully for '
+                        f'[{targetCellValue}] \n')
+                    if targetCellValue is not None:
+                        copyPasteDone.add(targetCellValue)
+                    pasteSuccess += 1
+                    updateProgress(progressBar, pasteSuccess, sourceVisibleRowCount, window, progressStyle)
+                    fileHandler.flush()
+                    break
+    fileHandler.write(
+        f'{datetime.now().replace(microsecond=0)} Data for {len(copyPasteDone)} cells whose values are '
+        f'[{copyPasteDone}] copied\n')
+    fileHandler.write(f'{datetime.now().replace(microsecond=0)} Saving file...\n')
+    messageText.config(text='Saving File...')
+    excelFileName = splitext(basename(targetExcelFile))[0]
+    excelFileSave = f'{splitext(basename(targetExcelFile))[0]}_modified.xlsx'
+    excelFIleCounter = 1
+    while exists(excelFileSave):
+        excelFileSave = f"{excelFileName}_modified_({excelFIleCounter}).xlsx"
+        excelFIleCounter = excelFIleCounter + 1
+    targetWorkbook.save(excelFileSave)
+    fileHandler.write(
+        f'{datetime.now().replace(microsecond=0)} modified file [{excelFileSave}] saved successfully\n')
+    fileHandler.write(f'{datetime.now().replace(microsecond=0)} Applying filter\n')
+    progressBar['value'] = 99
+    progressStyle.configure("Custom.Horizontal.TProgressbar", background='#90EE90', text='99%')
+    messageText.config(text='Applying Filter...')
+    modifiedFilePath = join(dirname(__file__), excelFileSave)
+    filterApplied = list(copyPasteDone)
+    try:
+        filterProcess = Book(modifiedFilePath, App(visible=False))
+        filterProcess.sheets[f'{targetExcelSheet}'].api.Range(
+            f"A1:{targetReferenceColumnComboValues[-1]}{filterProcess.sheets[f'{targetExcelSheet}'].range('A' + str(filterProcess.sheets[f'{targetExcelSheet}'].cells.last_cell.row)).end('up').row}").AutoFilter(
+            Field := targetReferenceColumn, Criterial := filterApplied, Operator := 7)
+        filterProcess.save()
+        filterProcess.close()
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} Filter applied successfully and file saved.\n')
+        progressBar['value'] = 100
+        progressStyle.configure("Custom.Horizontal.TProgressbar", background='#7CFC00', text='100%')
+    except Exception as error:
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} Error during filter, filter process failed\n')
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} [ERROR] {error}\n')
+    endTime = time()
+    fileHandler.write(f'{datetime.now().replace(microsecond=0)} TASK COMPLETED\n')
+    fileHandler.write(
+        f'{datetime.now().replace(microsecond=0)} ELAPSED TIME TO COMPLETE THIS TASK IS '
+        f'{((endTime - startTime) / 60):.2f} Minutes\n')
+    resetBtnFunc(sourceExcelEntry, sourceExcelSheetCombo, sourceReferenceColumnCombo, sourceExcelFileDialogBtn,
+                 sourceCopyColumnsScrolledText, targetExcelEntry, targetExcelSheetCombo, targetReferenceColumnCombo,
+                 targetExcelFileDialogBtn, targetPasteColumnsScrolledText, resetBtn, messageText)
+    messageText.config(text=f'Changes saved in {excelFileSave}, check logs file for the status')
+    fileHandler.flush()
+
+def updateProgress(progressBar, newVal, totalVal, window, progressStyle):
+    resultVal = round((newVal / totalVal) * 98, 2)
+    progressBar['value'] = resultVal
+    progressStyle.configure("Custom.Horizontal.TProgressbar", text=f"{resultVal}%")
+    window.update()
+
+copySelectedIndex = []
+copyCheckBoxVars = []
+copyCheckboxesText = []
+copyCheckboxes = {}
+copySelectedIndices = []
+copyColors = {}
+
+
+def enableSourceReferenceColumnCombo(sourceExcelSheetCombo, sourceReferenceColumnCombo,
+                                     sourceReferenceColumnComboValues, sourceCopyColumnsScrolledText, resetBtn):
+    sourceCopyColumnsScrolledText.delete(1.0, 'end')
+    if not sourceExcelSheetCombo.get() == "Select WorkSheet":
+        sourceReferenceColumnCombo.config(state='disabled')
+        sourceExcelSheetCombo.config(state='disabled')
+        resetBtn.config(state='disabled', bg='light grey')
+        sourceReferenceColumnComboValues.clear()
+        sourceReferenceColumnComboValues.append('Select Reference Column')
+        for sourceColumnIndex in range(1, load_workbook(sourceExcelFile)[sourceExcelSheetCombo.get()].max_column + 1):
+            sourceColumnLetter = getColumnLetter(sourceColumnIndex)
+            sourceReferenceColumnComboValues.append(sourceColumnLetter)
+        sourceExcelSheetCombo.config(state='normal')
+        sourceReferenceColumnCombo.config(state='normal')
+        sourceReferenceColumnCombo.config(values=sourceReferenceColumnComboValues)
+        del sourceReferenceColumnComboValues[0]
+        load_workbook(sourceExcelFile).close()
+    else:
+        sourceReferenceColumnCombo.config(state='disabled')
+    resetBtn.config(state='normal', bg='red')
+
+def copyCheckboxClicked(index):
+    global copySelectedValues
+    if copyCheckBoxVars[index].get() == 1:
+        assign_color(copyCheckBoxVars[index], copyCheckboxes, copyColors)
+        copySelectedIndices.append(index)
+        disable_checkboxes(copyCheckboxes)
+        enableCheckboxes(pasteCheckboxes)
+    elif copyCheckBoxVars[index].get() == 0:
+        enableCheckboxes(copyCheckboxes)
+        copySelectedIndices.remove(index)
+    copySelectedValues = [copyCheckboxesText[i] for i in copySelectedIndices]
+    copySelectedIndex.clear()
+    for item in copySelectedValues:
+        copySelectedIndex.append(excelColumnIndex(item))
+    # print('copyVal', copySelectedValues)
+    # print('copyIn', copySelectedIndex)
+
+
+def threadingEnableSourceReferenceColumnCombo(sourceExcelSheetCombo, sourceReferenceColumnCombo,
+                                              sourceReferenceColumnComboValues, sourceCopyColumnsScrolledText,
+                                              resetBtn):
+    threadEnableSourceReferenceColumnCombo = Thread(target=enableSourceReferenceColumnCombo,
+                                                    args=(sourceExcelSheetCombo, sourceReferenceColumnCombo,
+                                                          sourceReferenceColumnComboValues,
+                                                          sourceCopyColumnsScrolledText, resetBtn))
+    threadEnableSourceReferenceColumnCombo.start()
+
+def enableTargetExcelDialogBtn(sourceExcelSheetCombo, sourceReferenceColumnCombo, targetExcelFileDialogBtn,
+                               sourceReferenceColumnComboValues, sourceCopyColumnsScrolledText):
+    if sourceExcelSheetCombo.get() and sourceReferenceColumnCombo.get():
+        sourceExcelSheetCombo.config(state='disabled')
+        sourceReferenceColumnCombo.config(state='disabled')
+        sourceReferenceColumnComboValues.remove(sourceReferenceColumnCombo.get())
+        for index, columnsText in enumerate(sourceReferenceColumnComboValues):
+            var = IntVar()
+            copyCheckBoxVars.append(var)
+            copyCheckbox = Checkbutton(sourceCopyColumnsScrolledText, variable=var, text=columnsText, bg='light grey',
+                                       state='disabled', cursor="arrow", command=lambda e=index: copyCheckboxClicked(e))
+            copyCheckbox.pack()
+            copyCheckboxesText.append(columnsText)
+            copyCheckboxes[copyCheckbox] = var
+            sourceCopyColumnsScrolledText.window_create('end', window=copyCheckbox)
+            sourceCopyColumnsScrolledText.config(bd=4, width=12, bg='light grey', height=5)
+            var.trace_add('write', enablePasteCheckBtnSubmitBtn)
+        targetExcelFileDialogBtn.config(state='normal', bg='green')
+        sourceExcelFileName = basename(sourceExcelFile)
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} [{sourceExcelSheetCombo.get()}] is selected as '
+                          f'source work sheet of the excel file [{sourceExcelFileName}]\n')
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} [{sourceReferenceColumnCombo.get()}] is selected '
+                          f'as source reference column from the excel work sheet [{sourceExcelSheetCombo.get()}]\n')
+    else:
+        targetExcelFileDialogBtn.config(state='disabled', bg='light grey')
+    fileHandler.flush()
+
+
+pasteSelectedIndex = []
+pasteCheckBoxVars = []
+pasteCheckboxesText = []
+pasteCheckboxes = {}
+pasteSelectedIndices = []
+pasteColors = {}
+
+def enableTargetReferenceColumnCombo(targetExcelSheetCombo, targetReferenceColumnCombo,
+                                     targetReferenceColumnComboValues, targetPasteColumnsScrolledText, resetBtn):
+    targetPasteColumnsScrolledText.delete(1.0, 'end')
+    if not targetExcelSheetCombo.get() == "Select WorkSheet":
+        targetReferenceColumnCombo.config(state='disabled')
+        targetExcelSheetCombo.config(state='disabled')
+        resetBtn.config(state='disabled', bg='light grey')
+        targetReferenceColumnComboValues.clear()
+        targetReferenceColumnComboValues.append('Select Reference Column')
+        for targetColumnIndex in range(1, load_workbook(targetExcelFile)[targetExcelSheetCombo.get()].max_column + 1):
+            targetColumnLetter = getColumnLetter(targetColumnIndex)
+            targetReferenceColumnComboValues.append(targetColumnLetter)
+        targetReferenceColumnCombo.config(state='normal')
+        targetExcelSheetCombo.config(state='normal')
+        targetReferenceColumnCombo.config(values=targetReferenceColumnComboValues)
+        del targetReferenceColumnComboValues[0]
+        load_workbook(sourceExcelFile).close()
+    else:
+        targetReferenceColumnCombo.config(state='disabled')
+    resetBtn.config(state='normal', bg='red')
+
+def pasteCheckboxClicked(index):
+    global pasteSelectedValues
+    if pasteCheckBoxVars[index].get() == 1:
+        pasteSelectedIndices.append(index)
+        disable_checkboxes(pasteCheckboxes, except_checkbox=list(pasteCheckboxes.keys())[index])
+        if len(pasteCheckboxes.keys()) != len(pasteSelectedIndices):
+            enableCheckboxes(copyCheckboxes)
+        if len(copyColors) > 0:
+            color = list(copyColors.values())[-1]
+            list(pasteCheckboxes.keys())[index].configure(bg=color)
+            list(pasteCheckboxes.keys())[index].config(state='disabled')
+            pasteColors[list(pasteCheckboxes.keys())[index]] = color
+        else:
+            assign_color(pasteCheckBoxVars[index], pasteCheckboxes, pasteColors)
+    elif pasteCheckBoxVars[index].get() == 0:
+        pasteSelectedIndices.remove(index)
+        enableCheckboxes(pasteCheckboxes)
+    pasteSelectedValues = [pasteCheckboxesText[i] for i in pasteSelectedIndices]
+    pasteSelectedIndex.clear()
+    for item in pasteSelectedValues:
+        pasteSelectedIndex.append(excelColumnIndex(item))
+    # print('pasteVal', pasteSelectedValues)
+    # print('pasteIn', pasteSelectedIndex)
+
+
+def disable_checkboxes(checkboxes, except_checkbox=None):
+    for checkbox, var in checkboxes.items():
+        if checkbox != except_checkbox:
+            checkbox.config(state='disabled')
+
+
+def enableCheckboxes(checkboxes):
+    for checkbox, var in checkboxes.items():
+        if var.get() == 0:  # Check if the checkbox is not selected (unchecked)
+            checkbox.config(state='normal')
+        else:
+            checkbox.config(state='disabled')
+
+
+def threadingEnableTargetReferenceColumnCombo(targetExcelSheetCombo, targetReferenceColumnCombo,
+                                              targetReferenceColumnComboValues, targetPasteColumnsScrolledText,
+                                              resetBtn):
+    threadEnableTargetReferenceColumnCombo = Thread(target=enableTargetReferenceColumnCombo,
+                                                    args=(targetExcelSheetCombo, targetReferenceColumnCombo,
+                                                          targetReferenceColumnComboValues,
+                                                          targetPasteColumnsScrolledText, resetBtn))
+    threadEnableTargetReferenceColumnCombo.start()
+
+
+def getColumnLetter(index):
+    if index <= 0:
+        fileHandler.write(
+            f'{datetime.now().replace(microsecond=0)} [ValueError][Column index must be greater than 0]\n')
+    result = ''
+    while index > 0:
+        index, remainder = divmod(index - 1, 26)
+        result = chr(65 + remainder) + result
+    fileHandler.flush()
+    return result
+
+def enableCopyColumnsCheckBtn(targetExcelSheetCombo, targetReferenceColumnCombo, targetReferenceColumnComboValues,
+                              targetPasteColumnsScrolledText):
+    if not targetReferenceColumnCombo.get() == 'Select Reference Column':
+        targetExcelFileName = basename(targetExcelFile)
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} [{targetExcelSheetCombo.get()}] is selected as '
+                          f'target work sheet of the excel file [{targetExcelFileName}]\n')
+        fileHandler.write(f'{datetime.now().replace(microsecond=0)} [{targetReferenceColumnCombo.get()}] is selected '
+                          f'as target reference column from the excel work sheet [{targetExcelSheetCombo.get()}]\n')
+        targetExcelSheetCombo.config(state='disabled')
+        targetReferenceColumnCombo.config(state='disabled')
+        targetReferenceColumnComboValues.remove(targetReferenceColumnCombo.get())
+        for index, columnsText in enumerate(targetReferenceColumnComboValues):
+            var = IntVar()
+            pasteCheckBoxVars.append(var)
+            pasteCheckbox = Checkbutton(targetPasteColumnsScrolledText, variable=var, text=columnsText, bg='light grey',
+                                        state='disabled', cursor="arrow",
+                                        command=lambda e=index: pasteCheckboxClicked(e))
+            pasteCheckbox.pack()
+            pasteCheckboxesText.append(columnsText)
+            pasteCheckboxes[pasteCheckbox] = var
+            targetPasteColumnsScrolledText.window_create('end', window=pasteCheckbox)
+            targetPasteColumnsScrolledText.config(bd=4, width=12, bg='light grey', height=5)
+            var.trace_add('write', enablePasteCheckBtnSubmitBtn)
+        for copyCheckbox in copyCheckboxes:
+            copyCheckbox.config(state='normal')
+            copyCheckbox.configure(cursor="hand2")
+    fileHandler.flush()
+
+def enablePasteCheckBtnSubmitBtn(*args):
+    copyCheckboxesState = [var.get() for var in copyCheckBoxVars]
+    if any(copyCheckboxesState):
+        for pasteCheckbox in pasteCheckboxes:
+            pasteCheckbox.config(state='normal')
+            pasteCheckbox.configure(cursor="hand2")
+    else:
+        for index, pasteCheckbox in enumerate(pasteCheckboxes):
+            if pasteCheckBoxVars[index].get() == 1:
+                pasteCheckbox.deselect()
+                pasteSelectedIndices.clear()
+            pasteCheckbox.config(state='disabled')
+            pasteCheckbox.configure(cursor="arrow")
+    copyCheckboxSelected = sum(copyVar.get() for copyVar in copyCheckBoxVars)
+    pasteCheckboxSelected = sum(pasteVar.get() for pasteVar in pasteCheckBoxVars)
+    if copyCheckboxSelected > 0 and copyCheckboxSelected == pasteCheckboxSelected:
+        submitBtn.config(state='normal', bg='green')
+    else:
+        submitBtn.config(state='disabled', bg='light grey')
+
+def excelColumnIndex(columnRef):
+    base = ord('A') - 1  # ASCII value of 'A' minus 1
+    index = 0
+    for char in columnRef:
+        index = index * 26 + (ord(char) - base)
+    return index
+
+
+def random_color():
+    return f'#{randint(0, 0xFFFFFF):06x}'
+
+
+def assign_color(check_var, checkboxes, colors):
+    color = random_color()
+    for checkbox, var in checkboxes.items():
+        if var == check_var:
+            checkbox.configure(bg=color)
+            checkbox.config(state='disabled')
+            colors[checkbox] = color
+
+def resetBtnFunc(sourceExcelEntry, sourceExcelSheetCombo, sourceReferenceColumnCombo, sourceExcelFileDialogBtn,
+                 sourceCopyColumnsScrolledText, targetExcelEntry, targetExcelSheetCombo, targetReferenceColumnCombo,
+                 targetExcelFileDialogBtn, targetPasteColumnsScrolledText, resetBtn, messageText):
+    fileHandler.write(f'{datetime.now().replace(microsecond=0)} Resetting...\n')
+    sourceExcelEntry.config(state='normal')
+    sourceExcelEntry.delete(0, 'end')
+    sourceExcelEntry.config(state='disabled')
+    sourceExcelSheetCombo.config(state='normal')
+    sourceExcelSheetCombo.delete(0, 'end')
+    sourceExcelSheetCombo.set('Select WorkSheet')
+    sourceExcelSheetCombo.config(state='disabled')
+    sourceReferenceColumnCombo.config(state='normal')
+    sourceReferenceColumnCombo.delete(0, 'end')
+    sourceReferenceColumnCombo.set('Select Reference Column')
+    sourceReferenceColumnCombo.config(state='disabled')
+    sourceExcelFileDialogBtn.config(state='normal', bg='green')
+    sourceExcelFile = ''
+    copySelectedIndices.clear()
+    copyCheckBoxVars.clear()
+    copyCheckboxes.clear()
+    copySelectedIndex.clear()
+    copyCheckboxesText.clear()
+    copyColors.clear()
+    sourceCopyColumnsScrolledText.delete(1.0, 'end')
+    targetExcelEntry.config(state='normal')
+    targetExcelEntry.delete(0, 'end')
+    targetExcelEntry.config(state='disabled')
+    targetExcelSheetCombo.config(state='normal')
+    targetExcelSheetCombo.delete(0, 'end')
+    targetExcelSheetCombo.set('Select WorkSheet')
+    targetExcelSheetCombo.config(state='disabled')
+    targetReferenceColumnCombo.config(state='normal')
+    targetReferenceColumnCombo.delete(0, 'end')
+    targetReferenceColumnCombo.set('Select Reference Column')
+    targetReferenceColumnCombo.config(state='disabled')
+    targetExcelFileDialogBtn.config(state='disabled', bg='light grey')
+    pasteSelectedIndices.clear()
+    pasteCheckBoxVars.clear()
+    pasteCheckboxes.clear()
+    pasteSelectedIndex.clear()
+    pasteCheckboxesText.clear()
+    pasteColors.clear()
+    targetPasteColumnsScrolledText.delete(1.0, 'end')
+    submitBtn.config(state='disabled', bg='light grey')
+    resetBtn.config(state='disabled', bg='light grey')
+    targetExcelFile = ''
+    messageText.config(text='')
+    fileHandler.write(f'{datetime.now().replace(microsecond=0)} Reset done..\n')
+
+def mainGUI():
+    global submitBtn
+    window = Tk()
+    window.config(bg='lemon chiffon')
+    window.title('ExcelBridge v1.0')
+    window.geometry('450x525')
+    window.resizable(False, False)
+    window.iconbitmap(iconFile)
+    mainLabel = Label(window, text='Excel Data Transfer', font=('Arial', 15, 'bold'), fg='blue', bg='lemon chiffon')
+    mainLabel.place(x=230, y=15, anchor='center')
+    sourceEntryCanvas = Canvas(window, highlightthickness=3, highlightbackground="black", relief='solid', height=100,
+                               width=435, bg='gray56')
+    sourceEntryCanvas.place(x=5, y=30)
+    sourceExcelLabel = Label(sourceEntryCanvas, text='Source Excel:', font=('Arial', 9, 'bold italic'), bg='gray56')
+    sourceExcelLabel.place(x=5, y=10)
+    sourceExcelEntry = Entry(sourceEntryCanvas, bd=4, width=47, bg='white', state='disabled')
+    sourceExcelEntry.place(x=120, y=8)
+    sourceExcelFileDialogBtn = Button(sourceEntryCanvas, text='...', bg='green', fg='white', font=('Arial', 8),
+                                      command=lambda: threadingSourceExcelFileDialogFunc(progress, progressStyle,
+                                                                                         sourceExcelEntry,
+                                                                                         sourceExcelFileDialogBtn,
+                                                                                         sourceExcelSheetCombo,
+                                                                                         resetBtn, messageLabel,
+                                                                                         sourceExcelSheetComboValues))
+    sourceExcelFileDialogBtn.place(x=418, y=8)
+    sourceExcelSheetLabel = Label(sourceEntryCanvas, text='Source Excel Sheet:', font=('Arial', 8, 'bold italic'),
+                                  bg='gray56')
+    sourceExcelSheetLabel.place(x=5, y=40)
+    sourceExcelSheetComboValues = ['Select WorkSheet']
+    sourceExcelSheetCombo = Combobox(sourceEntryCanvas, values=sourceExcelSheetComboValues, width=47, state='disabled')
+    sourceExcelSheetCombo.place(x=120, y=38)
+    sourceExcelSheetCombo.current(0)
+    sourceReferenceColumnLabel = Label(sourceEntryCanvas, text='Source Ref. column:', font=('Arial', 8, 'bold italic'),
+                                       bg='gray56')
+    sourceReferenceColumnLabel.place(x=5, y=70)
+    sourceReferenceColumnComboValues = ['Select Reference Column']
+    sourceReferenceColumnCombo = Combobox(sourceEntryCanvas, values=sourceReferenceColumnComboValues, width=47,
+                                          state='disabled')
+    sourceReferenceColumnCombo.place(x=120, y=68)
+    sourceReferenceColumnCombo.current(0)
+	
+    targetEntryCanvas = Canvas(window, highlightthickness=3, highlightbackground="yellow", relief='solid', height=100,
+                               width=435, bg='gray56')
+    targetEntryCanvas.place(x=5, y=140)
+    targetExcelLabel = Label(targetEntryCanvas, text='Target Excel:', font=('Arial', 8, 'bold italic'), bg='grey56')
+    targetExcelLabel.place(x=5, y=10)
+    targetExcelEntry = Entry(targetEntryCanvas, bd=4, width=47, bg='white', state='disabled')
+    targetExcelEntry.place(x=120, y=8)
+    targetExcelFileDialogBtn = Button(targetEntryCanvas, text='...', bg='light grey', fg='white', font=('Arial', 8),
+                                      state='disabled', command=lambda: threadingTargetExcelFileDialogFunc(
+            progress, progressStyle, targetExcelSheetComboValues, targetExcelEntry, targetExcelFileDialogBtn,
+            targetExcelSheetCombo, messageLabel, resetBtn))
+    targetExcelFileDialogBtn.place(x=418, y=8)
+    targetExcelSheetLabel = Label(targetEntryCanvas, text='Target Excel Sheet:', font=('Arial', 8, 'bold italic'),
+                                  bg='grey56')
+    targetExcelSheetLabel.place(x=5, y=40)
+    targetExcelSheetComboValues = ['Select WorkSheet']
+    targetExcelSheetCombo = Combobox(targetEntryCanvas, values=targetExcelSheetComboValues, width=47, state='disabled')
+    targetExcelSheetCombo.place(x=120, y=38)
+    targetExcelSheetCombo.current(0)
+    targetReferenceColumnLabel = Label(targetEntryCanvas, text='Target Ref. column:', font=('Arial', 8, 'bold italic'),
+                                       bg='grey56')
+    targetReferenceColumnLabel.place(x=5, y=70)
+    targetReferenceColumnComboValues = ['Select Reference Column']
+    targetReferenceColumnCombo = Combobox(targetEntryCanvas, values=targetReferenceColumnComboValues, width=47,
+                                          state='disabled')
+    targetReferenceColumnCombo.place(x=120, y=68)
+    targetReferenceColumnCombo.current(0)
+
+    copyPasteCanvas = Canvas(window, highlightthickness=3, highlightbackground="light green", relief='solid',
+                             height=265,
+                             width=435, bg='gray56')
+    copyPasteCanvas.place(x=5, y=250)
+
+    sourceCopyColumnsLabel = Label(copyPasteCanvas, text='Copy Columns', font=('Arial', 8, 'bold italic'),
+                                   bg='grey56')
+    sourceCopyColumnsLabel.place(x=100, y=5)
+    sourceCopyColumnsScrolledText = ScrolledText(copyPasteCanvas, bd=4, width=12, bg='white', height=5)
+    sourceCopyColumnsScrolledText.place(x=100, y=25)
+    targetPasteColumnsLabel = Label(copyPasteCanvas, text='Paste Columns:', font=('Arial', 8, 'bold italic'),
+                                    bg='grey56')
+    targetPasteColumnsLabel.place(x=245, y=5)
+    targetPasteColumnsScrolledText = ScrolledText(copyPasteCanvas, bd=4, width=12, bg='white', height=5)
+    targetPasteColumnsScrolledText.place(x=245, y=25)
+
+    submitBtn = Button(copyPasteCanvas, text='Submit', bg='light grey', fg='white', font=('Arial', 12, 'bold'),
+                       state='disabled', command=lambda: threadingMatchCopyPaste(sourceExcelEntry,
+                                                                                 sourceExcelSheetCombo,
+                                                                                 sourceReferenceColumnCombo,
+                                                                                 sourceExcelFileDialogBtn,
+                                                                                 sourceCopyColumnsScrolledText,
+                                                                                 targetExcelEntry,
+                                                                                 targetExcelSheetCombo,
+                                                                                 targetReferenceColumnCombo,
+                                                                                 targetReferenceColumnComboValues,
+                                                                                 targetExcelFileDialogBtn,
+                                                                                 targetPasteColumnsScrolledText,
+                                                                                 resetBtn, messageLabel, window,
+                                                                                 progress, progressStyle))
+    submitBtn.place(x=155, y=120)
+    resetBtn = Button(copyPasteCanvas, text='Reset', bg='light grey', fg='white',
+                      font=('Arial', 12, 'bold'), state='disabled',
+                      command=lambda: resetBtnFunc(sourceExcelEntry, sourceExcelSheetCombo,
+                                                   sourceReferenceColumnCombo, sourceExcelFileDialogBtn,
+                                                   sourceCopyColumnsScrolledText, targetExcelEntry,
+                                                   targetExcelSheetCombo,
+                                                   targetReferenceColumnCombo, targetExcelFileDialogBtn,
+                                                   targetPasteColumnsScrolledText, resetBtn, messageLabel))
+
+    resetBtn.place(x=245, y=120)
+    progress = Progressbar(copyPasteCanvas, length=430, mode="determinate", style="Custom.Horizontal.TProgressbar")
+    progress.place(x=5, y=160)
+    progressStyle = Style()
+    progressStyle.theme_use('default')
+    progressStyle.configure("Custom.Horizontal.TProgressbar", thickness=20, troughcolor='#E0E0E0', background='#FFFF00',
+                            troughrelief='flat', relief='flat', text='0 %')
+    progressStyle.layout('Custom.Horizontal.TProgressbar', [('Horizontal.Progressbar.trough',
+                                                             {'children': [('Horizontal.Progressbar.pbar',
+                                                                            {'side': 'left', 'sticky': 'ns'})],
+                                                              'sticky': 'nswe'}),
+                                                            ('Horizontal.Progressbar.label', {'sticky': ''})])
+    warnLabel = Label(copyPasteCanvas, text='Note:It does not supports Data_Validation_Rules',
+                      font=('Arial', 8, 'bold italic'), bg='grey56')
+    warnLabel.place(x=5, y=245)
+    messageLabel = Label(copyPasteCanvas, justify='left', wraplength=420, font=('Arial', 8, 'bold'), bg='grey56')
+    messageLabel.place(x=5, y=195)
+    aboutBtn = Button(copyPasteCanvas, text='About', bg='brown', command=lambda: aboutWindow(window))
+    aboutBtn.place(x=390, y=240)
+
+    sourceExcelSheetCombo.bind("<<ComboboxSelected>>", lambda event: threadingEnableSourceReferenceColumnCombo(
+        sourceExcelSheetCombo, sourceReferenceColumnCombo, sourceReferenceColumnComboValues,
+        sourceCopyColumnsScrolledText, resetBtn))
+    sourceReferenceColumnCombo.bind('<<ComboboxSelected>>', lambda event: enableTargetExcelDialogBtn(
+        sourceExcelSheetCombo, sourceReferenceColumnCombo, targetExcelFileDialogBtn,
+        sourceReferenceColumnComboValues, sourceCopyColumnsScrolledText))
+    targetExcelSheetCombo.bind("<<ComboboxSelected>>", lambda event: threadingEnableTargetReferenceColumnCombo(
+        targetExcelSheetCombo, targetReferenceColumnCombo, targetReferenceColumnComboValues,
+        targetPasteColumnsScrolledText, resetBtn))
+    targetReferenceColumnCombo.bind('<<ComboboxSelected>>', lambda event: enableCopyColumnsCheckBtn(
+        targetExcelSheetCombo, targetReferenceColumnCombo, targetReferenceColumnComboValues,
+        targetPasteColumnsScrolledText))
+    window.mainloop()
+
+def aboutWindow(mainWin):
+    aboutWin = Toplevel(mainWin)
+    aboutWin.grab_set()
+    aboutWin.geometry('285x90')
+    aboutWin.resizable(False, False)
+    aboutWin.title('About')
+    aboutWin.iconbitmap(aboutIcon)
+    aboutWinLabel = Label(aboutWin, text=f'Version - 1.0\nDeveloped by Priyanshu\nFor any improvement please reach on '
+                                         f'below email\nEmail : chandelpriyanshu8@outlook.com\nMobile : '
+                                         f'+91-8285775109 '
+                                         f'', font=('Helvetica', 9)).place(x=1, y=6)
+
+def updateProgressSaveExcel(listingSuccess, progressBar, totalFiles, window, progressStyle):
+    resultVal = (listingSuccess / totalFiles) * 100
+    progressBar['value'] = resultVal
+    progressStyle.configure("Custom.Horizontal.TProgressbar", text='{:g} %'.format(resultVal))
+    window.update()
+
+
+mainGUI()
