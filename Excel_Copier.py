@@ -9,6 +9,7 @@ from tkinter.ttk import Progressbar, Style, Combobox
 from tkinter.scrolledtext import ScrolledText
 from random import randint
 from xlwings import Book, App
+from sys import argv
 
 fileHandler = open(f"logs_{datetime.now().strftime('%Y%m%d%H%M%S')}.txt", 'a')
 
@@ -257,7 +258,7 @@ def matchCopyPaste(sourceExcelEntry, sourceExcelSheetCombo, sourceReferenceColum
     progressBar['value'] = 99
     progressStyle.configure("Custom.Horizontal.TProgressbar", background='#90EE90', text='99%')
     messageText.config(text='Applying Filter...')
-    modifiedFilePath = join(dirname(__file__), excelFileSave)
+    modifiedFilePath = join(dirname((argv[0])), excelFileSave)
     filterApplied = list(copyPasteDone)
     try:
         filterProcess = Book(modifiedFilePath, App(visible=False))
