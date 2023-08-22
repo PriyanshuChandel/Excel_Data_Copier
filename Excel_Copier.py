@@ -238,10 +238,14 @@ def matchCopyPaste(sourceExcelEntry, sourceExcelSheetCombo, sourceReferenceColum
     fileHandler.write(
         f'{datetime.now().replace(microsecond=0)} Data for {len(copyPasteDone)} cells whose values are '
         f'[{copyPasteDone}] copied\n')
-    missedItem = [item.strip() for item in totalSources if item.strip() not in copyPasteDone]
-    fileHandler.write(
-        f'{datetime.now().replace(microsecond=0)} Data for {len(missedItem)} cells whose values are '
-        f'[{missedItem}] failed to copy because it is not exact match.\n')
+    try:
+        missedItem = [item.strip() for item in totalSources if item is not None and item.strip() not in copyPasteDone]
+        fileHandler.write(
+            f'{datetime.now().replace(microsecond=0)} Data for {len(missedItem)} cells whose values are '
+            f'[{missedItem}] failed to copy because it is not exact match.\n')
+    except Exception as e:
+        fileHandler.write(
+            f'{datetime.now().replace(microsecond=0)} Error occurred during getting missed items, {e}\n')
 
     fileHandler.write(f'{datetime.now().replace(microsecond=0)} Saving file...\n')
     messageText.config(text='Saving File...')
