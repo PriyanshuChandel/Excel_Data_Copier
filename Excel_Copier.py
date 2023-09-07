@@ -124,23 +124,28 @@ class ExApp:
         self.sourceCopyColumnsLabel.place(x=100, y=5)
         self.sourceCopyColumnsScrolledText = ScrolledText(self.copyPasteCanvas, bd=4, width=12, bg='white', height=5)
         self.sourceCopyColumnsScrolledText.place(x=100, y=25)
+        self.sourceCopyColumnsScrolledTextVertical = self.sourceCopyColumnsScrolledText.vbar
+        self.sourceCopyColumnsScrolledTextVertical.config(cursor='hand2')
+
         self.targetPasteColumnsLabel = Label(self.copyPasteCanvas, text='Paste Columns:',
                                              font=('Arial', 8, 'bold italic'), bg='grey56')
         self.targetPasteColumnsLabel.place(x=245, y=5)
         self.targetPasteColumnsScrolledText = ScrolledText(self.copyPasteCanvas, bd=4, width=12, bg='white', height=5)
         self.targetPasteColumnsScrolledText.place(x=245, y=25)
+        self.targetPasteColumnsScrolledTextVertical = self.targetPasteColumnsScrolledText.vbar
+        self.targetPasteColumnsScrolledTextVertical.config(cursor='hand2')
 
         self.submitBtn = Button(self.copyPasteCanvas, text='Submit', bg='light grey', fg='white',
                                 font=('Arial', 12, 'bold'), cursor='arrow',
                                 state='disabled', command=self.matchCopyPaste)
-        self.submitBtn.place(x=155, y=120)
+        self.submitBtn.place(x=155, y=130)
         self.resetBtn = Button(self.copyPasteCanvas, text='Reset', bg='light grey', fg='white',
                                font=('Arial', 12, 'bold'), state='disabled', cursor='arrow',
                                command=self.resetBtnFunc)
-        self.resetBtn.place(x=245, y=120)
+        self.resetBtn.place(x=245, y=130)
         self.progress = Progressbar(self.copyPasteCanvas, length=430, mode="determinate",
                                     style="Custom.Horizontal.TProgressbar")
-        self.progress.place(x=5, y=160)
+        self.progress.place(x=5, y=175)
         self.progressStyle = Style()
         self.progressStyle.theme_use('default')
         self.progressStyle.configure("Custom.Horizontal.TProgressbar", thickness=20, troughcolor='#E0E0E0',
@@ -154,9 +159,9 @@ class ExApp:
         self.warnLabel = Label(self.copyPasteCanvas, text='Note:It does not supports Data_Validation_Rules',
                                font=('Arial', 8, 'bold italic'), bg='grey56')
         self.warnLabel.place(x=5, y=245)
-        self.messageLabel = Label(self.copyPasteCanvas, justify='left', wraplength=420, font=('Arial', 8, 'bold'),
+        self.messageLabel = Label(self.copyPasteCanvas, justify='left', wraplength=420, font=('Arial', 7, 'bold'),
                                   bg='grey56')
-        self.messageLabel.place(x=5, y=195)
+        self.messageLabel.place(x=5, y=200)
         self.aboutLabel = Label(self.copyPasteCanvas, text="About", bg='grey56', fg="blue", cursor="hand2")
         self.aboutLabel.place(x=395, y=245)
 
@@ -310,8 +315,6 @@ class ExApp:
 
     def sourceExcelFileDialogFunc(self):
         def innerDialogThread():
-            self.aboutLabel.config(stat='disabled', cursor='arrow')
-            self.aboutLabel.unbind("<Button-1>")
             self.messageLabel.config(text='')
             self.progress.config(value=0)
             self.progressStyle.configure("Custom.Horizontal.TProgressbar", text='0 %')
@@ -584,6 +587,8 @@ class ExApp:
 
     def matchCopyPaste(self):
         def innerMatchThread():
+            self.aboutLabel.config(stat='disabled', cursor='arrow')
+            self.aboutLabel.unbind("<Button-1>")
             self.messageLabel.config(text='')
             for checkbox in self.copyCheckboxes.keys():
                 checkbox.config(state='disabled')
